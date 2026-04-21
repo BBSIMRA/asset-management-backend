@@ -7,7 +7,6 @@ from app import models, schemas
 from app.dependencies import RequirePrivilege
 
 router = APIRouter(
-    prefix="/api/assets",
     tags=["Assets"]
 )
 

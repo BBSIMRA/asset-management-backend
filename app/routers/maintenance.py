@@ -1,72 +1,98 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
 from app import models, schemas
 
-router = APIRouter(
-    prefix="/api/maintenance",
-    tags=["Asset Maintenance"]
-)
+router = APIRouter(tags=["Maintenance"])
 
+
+# CREATE
 @router.post("/", response_model=schemas.AssetMaintenanceLog)
-def create_maintenance_log(log: schemas.AssetMaintenanceLogBase, db: Session = Depends(get_db)):
-    """
-    Create a maintenance log for an asset.
-    """
-    db_log = models.AssetMaintenanceLog(**log.model_dump())
-    db.add(db_log)
-    db.commit()
-    db.refresh(db_log)
-    return db_log
+def create_log(data: schemas.AssetMaintenanceLogBase, db: Session = Depends(get_db)):
 
+    asset = db.query(models.Asset).filter(
+        models.Asset.asset_id == data.asset_id
+    ).first()
 
-@router.get("/", response_model=List[schemas.AssetMaintenanceLog])
-def get_all_maintenance_logs(db: Session = Depends(get_db)):
-    """
-    Retrieve all asset maintenance logs.
-    """
-    return db.query(models.AssetMaintenanceLog).all()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
 
+    log = models.AssetMaintenanceLog(**data.model_dump())
 
-@router.get("/{maintenance_id}", response_model=schemas.AssetMaintenanceLog)
-def get_maintenance_log_by_id(maintenance_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieve a maintenance log by ID.
-    """
-    log = db.query(models.AssetMaintenanceLog).filter(models.AssetMaintenanceLog.maintenance_id == maintenance_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Maintenance log not found")
-    return log
+    db.add(log)
 
-
-@router.put("/{maintenance_id}", response_model=schemas.AssetMaintenanceLog)
-def update_maintenance_log(maintenance_id: int, updated_log: schemas.AssetMaintenanceLogBase, db: Session = Depends(get_db)):
-    """
-    Update an existing maintenance log.
-    """
-    log = db.query(models.AssetMaintenanceLog).filter(models.AssetMaintenanceLog.maintenance_id == maintenance_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Maintenance log not found")
-
-    for key, value in updated_log.model_dump().items():
-        setattr(log, key, value)
+    asset.asset_status = "Under Maintenance"
 
     db.commit()
     db.refresh(log)
+
     return log
 
 
-@router.delete("/{maintenance_id}")
-def delete_maintenance_log(maintenance_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a maintenance log by ID.
-    """
-    log = db.query(models.AssetMaintenanceLog).filter(models.AssetMaintenanceLog.maintenance_id == maintenance_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Maintenance log not found")
+# GET ALL
+@router.get("/", response_model=List[schemas.AssetMaintenanceLog])
+def get_all_logs(db: Session = Depends(get_db)):
+    return db.query(models.AssetMaintenanceLog).all()
 
-    db.delete(log)
+
+# GET ONE
+@router.get("/{maintenance_id}", response_model=schemas.AssetMaintenanceLog)
+def get_log(maintenance_id: int, db: Session = Depends(get_db)):
+
+    item = db.query(models.AssetMaintenanceLog).filter(
+        models.AssetMaintenanceLog.maintenance_id == maintenance_id
+    ).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    return item
+
+
+# UPDATE
+@router.put("/{maintenance_id}", response_model=schemas.AssetMaintenanceLog)
+def update_log(
+    maintenance_id: int,
+    data: schemas.AssetMaintenanceLogBase,
+    db: Session = Depends(get_db)
+):
+    item = db.query(models.AssetMaintenanceLog).filter(
+        models.AssetMaintenanceLog.maintenance_id == maintenance_id
+    ).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    for key, value in data.model_dump().items():
+        setattr(item, key, value)
+
     db.commit()
-    return {"message": "Maintenance log deleted successfully"}
+    db.refresh(item)
+
+    return item
+
+
+# DELETE
+@router.delete("/{maintenance_id}")
+def delete_log(maintenance_id: int, db: Session = Depends(get_db)):
+
+    item = db.query(models.AssetMaintenanceLog).filter(
+        models.AssetMaintenanceLog.maintenance_id == maintenance_id
+    ).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    asset = db.query(models.Asset).filter(
+        models.Asset.asset_id == item.asset_id
+    ).first()
+
+    if asset:
+        asset.asset_status = "Available"
+
+    db.delete(item)
+    db.commit()
+
+    return {"message": "Deleted successfully"}
