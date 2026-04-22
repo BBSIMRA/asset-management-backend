@@ -6,8 +6,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # Load environment variables
 load_dotenv()
 
-DATABASE_URL = os.getenv("postgresql://postgres.boushkkylaydaacajkfb:EIuEbq1MXWtDI0Us@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require")
-
+DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable not found")
 
