@@ -3,16 +3,20 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Load environment variables
+# Load env variables
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable not found")
 
-# For Supabase SSL
+# Add SSL for Supabase
 if "supabase.com" in DATABASE_URL and "sslmode" not in DATABASE_URL:
-    DATABASE_URL += "?sslmode=require"
+    if "?" in DATABASE_URL:
+        DATABASE_URL += "&sslmode=require"
+    else:
+        DATABASE_URL += "?sslmode=require"
 
 engine = create_engine(DATABASE_URL)
 
@@ -23,3 +27,12 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
+
+# REQUIRED FOR FASTAPI ROUTERS
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
